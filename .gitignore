@@ -1,0 +1,4 @@
+.cache/
+main
+raylib/
+compile_commands.json
