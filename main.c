@@ -32,17 +32,24 @@ Vector2 Vector2Create(float direction, float power)
     return out;
 }
 
+float force_to_acc(float force, float mass) { return force / mass; }
+float acc_to_velocity(float acceleration, double time_diff)
+{
+    return acceleration * time_diff;
+}
+
 int main(int argc, char const **argv)
 {
     InitWindow(800, 450, "cars sim");
     SetTargetFPS(60);
+    double time = GetTime();
 
     struct car car = {.color        = {255, 0, 0, 255},
                       .width        = 30,
                       .length       = 50,
                       .position     = {50, 50},
                       .rotation     = 0,
-                      .mass         = 200,
+                      .mass         = 20,
                       .force        = 0,
                       .acceleration = 0,
                       .velocity     = 0,
@@ -53,6 +60,10 @@ int main(int argc, char const **argv)
 
     Vector2 last_force = {};
     while (!WindowShouldClose()) {
+        double now       = GetTime();
+        double time_diff = now - time;
+        time             = now;
+
         // draw
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -76,28 +87,38 @@ int main(int argc, char const **argv)
 
         // logic
         if (IsKeyDown(KEY_UP)) {
-            car.position =
-                Vector2Add(car.position, Vector2Create(car.rotation, 1));
-            car.force  = car.max_force;
+            car.force  = 100;
             last_force = Vector2Create(car.rotation, 1);
         }
+        else if (IsKeyDown(KEY_DOWN)) {
+            // TODO: make a better system
+            if (car.velocity > 0) {  // breaks
+                car.force = -250;
+            }
+            else if (car.velocity > -100) {  // max speed in reverse
+                car.force = -50;
+            }
+            else {
+                car.force = 0;
+            }
+        }
         else {
             car.force = 0;
         }
-        if (IsKeyDown(KEY_DOWN)) {
-            car.position =
-                Vector2Add(car.position, Vector2Create(car.rotation, -1));
-            car.force = car.max_force;
-        }
-        else {
-            car.force = 0;
-        }
+
         if (IsKeyDown(KEY_RIGHT)) {
             car.rotation += 1;
         }
         if (IsKeyDown(KEY_LEFT)) {
             car.rotation -= 1;
         }
+
+        // TODO: add friction system
+
+        car.acceleration = force_to_acc(car.force, car.mass);
+        car.velocity += acc_to_velocity(car.acceleration, time_diff);
+        car.position =
+            Vector2Add(car.position, Vector2Create(car.rotation, car.velocity));
     }
 
     CloseWindow();
