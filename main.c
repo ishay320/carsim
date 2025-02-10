@@ -1,8 +1,8 @@
 #include <math.h>
 #include <stdio.h>
 
-#include "raylib/src/raylib.h"
-#include "raylib/src/raymath.h"
+#include "raylib.h"
+#include "raymath.h"
 
 struct car {
     Color color;

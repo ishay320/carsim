@@ -1,5 +1,5 @@
 LIBS=-lraylib -lm
-CFLAGS=-L./raylib/src/
+CFLAGS=-L./raylib/src/ -I./raylib/src/
 
 main: main.c
 	gcc -o main main.c ${LIBS} ${CFLAGS}
