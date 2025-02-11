@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include "raylib.h"
@@ -11,13 +12,14 @@ struct car {
     Vector2 position;  // middle of the car
     float rotation;    // in degrees
 
+    // state
     bool breaks;
 
     // forces
     float mass;
     float force;
     float acceleration;
-    float velocity;
+    float velocity;  // m/s (multiply by 3.6 to get km/h)
 
     // pedal params
     float max_force;
@@ -43,10 +45,42 @@ float acc_to_velocity(float acceleration, double time_diff)
 
 void calculate_forces(struct car* car, double time_diff)
 {
+    // FIXME: the speed is heavily dependent on the fps
     car->acceleration = force_to_acc(car->force, car->mass);
     car->velocity += acc_to_velocity(car->acceleration, time_diff);
     car->position =
         Vector2Add(car->position, Vector2Create(car->rotation, car->velocity));
+}
+
+float mh_to_kmh(float speed) { return speed * 3.6f; }
+
+void DrawSpeedometer(Rectangle pos, float speed_kmh, float max_speed)
+{
+    const Vector2 middle = {pos.x + pos.width / 2, pos.y + pos.height / 2};
+    DrawCircle(middle.x, middle.y, 5, RED);
+
+    const float needle_offset = 90 + 20;
+    const float needle_length = pos.width * 4.f / 5.f;
+    float needle_angle = needle_offset + (fabsf(speed_kmh) / max_speed) * 280;
+    Vector2 needle_end_point = Vector2Create(needle_angle, needle_length);
+    DrawLineEx(middle, Vector2Add(middle, needle_end_point), 3, RED);
+
+    // draw the labels
+    const uint8_t labels_number = 10;
+    for (uint8_t i = 1; i <= labels_number; i++) {
+        char speed_text[32];
+        sprintf(speed_text, "%d", (int)(i / (float)labels_number * max_speed));
+        Vector2 speed_text_pos = Vector2Add(
+            Vector2Create(i / (float)labels_number * 280.f + needle_offset, 60),
+            middle);
+        int speed_text_size = MeasureText(speed_text, 5);
+        DrawText(speed_text, speed_text_pos.x - speed_text_size - 5,
+                 speed_text_pos.y, 5, BLACK);
+        DrawCircleV(speed_text_pos, 2, RED);
+    }
+    char kmh[]   = "km/h";
+    int kmh_size = MeasureText(kmh, 5);
+    DrawText(kmh, pos.x + pos.width - kmh_size, pos.y + pos.height, 5, BLACK);
 }
 
 void draw_car(const struct car car, const Vector2 origin)
@@ -70,6 +104,13 @@ void draw_car(const struct car car, const Vector2 origin)
             origin, car.rotation, RED);
     }
     DrawCircle(car.position.x, car.position.y, 4, (Color){0, 0, 0, 255});
+
+    // speedometer
+    Rectangle speedometer_pos = {.x      = 50,
+                                 .y      = GetRenderHeight() * 7 / 10.f,
+                                 .width  = 100,
+                                 .height = 100};
+    DrawSpeedometer(speedometer_pos, mh_to_kmh(car.velocity), 100);
 }
 
 int main(int argc, char const** argv)
