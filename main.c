@@ -45,17 +45,17 @@ float acc_to_velocity(float acceleration, double time_diff)
 
 void calculate_forces(struct car* car, double time_diff)
 {
-    // FIXME: the speed is heavily dependent on the fps
     car->acceleration = force_to_acc(car->force, car->mass);
     car->velocity += acc_to_velocity(car->acceleration, time_diff);
-    car->position =
-        Vector2Add(car->position, Vector2Create(car->rotation, car->velocity));
+    car->position = Vector2Add(
+        car->position, Vector2Create(car->rotation, car->velocity * time_diff));
 }
 
-float mh_to_kmh(float speed) { return speed * 3.6f; }
+float ms_to_kmh(float speed) { return speed * 3.6f; }
 
 void DrawSpeedometer(Rectangle pos, float speed_kmh, float max_speed)
 {
+    // FIXME: the drawing is going outside the rectangle
     const Vector2 middle = {pos.x + pos.width / 2, pos.y + pos.height / 2};
     DrawCircle(middle.x, middle.y, 5, RED);
 
@@ -103,26 +103,21 @@ void draw_car(const struct car car, const Vector2 origin)
                         car.length / 15, car.width / 3},
             origin, car.rotation, RED);
     }
-    DrawCircle(car.position.x, car.position.y, 4, (Color){0, 0, 0, 255});
-
-    // speedometer
-    Rectangle speedometer_pos = {.x      = 50,
-                                 .y      = GetRenderHeight() * 7 / 10.f,
-                                 .width  = 100,
-                                 .height = 100};
-    DrawSpeedometer(speedometer_pos, mh_to_kmh(car.velocity), 100);
+    // DrawCircle(car.position.x, car.position.y, 4, (Color){0, 0, 0, 255});
 }
 
 int main(int argc, char const** argv)
 {
-    InitWindow(800, 450, "cars sim");
+    const int screen_width  = 800;
+    const int screen_height = 450;
+    InitWindow(screen_width, screen_height, "cars sim");
     SetTargetFPS(60);
     double time = GetTime();
 
     struct car car = {.color        = GREEN,
-                      .width        = 30,
-                      .length       = 50,
-                      .position     = {50, 50},
+                      .width        = 3,
+                      .length       = 5,
+                      .position     = {5, 5},
                       .rotation     = 0,
                       .breaks       = false,
                       .mass         = 20,
@@ -134,30 +129,40 @@ int main(int argc, char const** argv)
 
     Vector2 origin = {0, 0};
 
-    Vector2 last_force = {};
+    Camera2D camera = {0};
+    camera.zoom     = 10.0f;
+
     while (!WindowShouldClose()) {
         double now       = GetTime();
         double time_diff = now - time;
         time             = now;
 
         // draw
-        BeginDrawing();
-        ClearBackground(RAYWHITE);
-        DrawFPS(10, 10);
+        BeginMode2D(camera);
         {
+            ClearBackground(RAYWHITE);
             draw_car(car, origin);
         }
-        char text[255];
-        sprintf(text, "rot: %f, x: %f, y: %f", car.rotation, last_force.x,
-                last_force.y);
-        DrawText(text, 100, 10, 25, (Color){0, 255, 0, 255});
+        EndMode2D();
+        {
+            DrawFPS(10, 10);
+            char text[255];
+            sprintf(text, "x: %f, y: %f, s: %f", car.position.x, car.position.y,
+                    car.velocity);
+            DrawText(text, 100, 10, 25, (Color){0, 255, 0, 255});
+            // speedometer
+            Rectangle speedometer_pos = {.x      = 50,
+                                         .y      = GetRenderHeight() - 120,
+                                         .width  = 100,
+                                         .height = 100};
+            DrawSpeedometer(speedometer_pos, ms_to_kmh(car.velocity), 100);
+        }
         EndDrawing();
 
         // logic
         car.breaks = false;
         if (IsKeyDown(KEY_UP)) {
-            car.force  = 100;
-            last_force = Vector2Create(car.rotation, 1);
+            car.force = 100;
             if (car.velocity < 0) {
                 car.breaks = true;
             }
@@ -180,6 +185,14 @@ int main(int argc, char const** argv)
             car.breaks = false;
         }
 
+        // TODO: better friction system
+        if (car.velocity > 0) {
+            car.force -= 10;
+        }
+        if (car.velocity < 0) {
+            car.force += 10;
+        }
+
         if (IsKeyDown(KEY_RIGHT)) {
             car.rotation += 1;
         }
@@ -187,7 +200,19 @@ int main(int argc, char const** argv)
             car.rotation -= 1;
         }
 
-        // TODO: add friction system
+        camera.zoom += ((float)GetMouseWheelMove() * 0.05f);
+
+        if (camera.zoom > 10.0f) {
+            camera.zoom = 10.0f;
+        }
+        else if (camera.zoom < 0.1f) {
+            camera.zoom = 0.1f;
+        }
+
+        // Camera reset (zoom and rotation)
+        if (IsKeyPressed(KEY_R)) {
+            camera.zoom = 10.0f;
+        }
 
         calculate_forces(&car, time_diff);
     }
