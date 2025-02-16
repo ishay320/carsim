@@ -83,25 +83,38 @@ void DrawSpeedometer(Rectangle pos, float speed_kmh, float max_speed)
     DrawText(kmh, pos.x + pos.width - kmh_size, pos.y + pos.height, 5, BLACK);
 }
 
+void DrawRectangleProMiddle(Rectangle rec, Vector2 origin, float rotation,
+                            Color color)
+{
+    float length    = sqrtf(powf(rec.width, 2) + powf(rec.height, 2)) / 2;
+    float angle     = degree(tanhf(rec.width / rec.height));
+    Vector2 pos_fix = Vector2Create(rotation + angle, length);
+    DrawRectanglePro((Rectangle){rec.x - pos_fix.x, rec.y - pos_fix.y,
+                                 rec.height, rec.width},
+                     origin, rotation, color);
+}
+
 void draw_car(const struct car car, const Vector2 origin)
 {
-    float length    = sqrtf(powf(car.length, 2) + powf(car.width, 2)) / 2;
-    float angle     = degree(tanhf(car.width / car.length));
-    Vector2 pos_fix = Vector2Create(car.rotation + angle, length);
-    DrawRectanglePro(
-        (Rectangle){car.position.x - pos_fix.x, car.position.y - pos_fix.y,
-                    car.length, car.width},
+    DrawRectangleProMiddle(
+        (Rectangle){car.position.x, car.position.y, car.width, car.length},
         origin, car.rotation, car.color);
+
     if (car.breaks) {
-        Vector2 pos_fix2 = Vector2Create(car.rotation + 90, car.width / 3 * 2);
-        DrawRectanglePro((Rectangle){car.position.x - pos_fix.x + pos_fix2.x,
-                                     car.position.y - pos_fix.y + pos_fix2.y,
+        float length = sqrtf(powf(car.length, 2) + powf(car.width, 2)) / 2;
+        float angle  = degree(tanhf(car.width / car.length));
+        Vector2 back_left =
+            Vector2Subtract((Vector2){car.position.x, car.position.y},
+                            Vector2Create(car.rotation + angle, length));
+        DrawRectanglePro((Rectangle){back_left.x, back_left.y, car.length / 15,
+                                     car.width / 3},
+                         origin, car.rotation, RED);
+
+        Vector2 back_right_light = Vector2Add(
+            Vector2Create(car.rotation + 90, car.width / 3 * 2), back_left);
+        DrawRectanglePro((Rectangle){back_right_light.x, back_right_light.y,
                                      car.length / 15, car.width / 3},
                          origin, car.rotation, RED);
-        DrawRectanglePro(
-            (Rectangle){car.position.x - pos_fix.x, car.position.y - pos_fix.y,
-                        car.length / 15, car.width / 3},
-            origin, car.rotation, RED);
     }
     // DrawCircle(car.position.x, car.position.y, 4, (Color){0, 0, 0, 255});
 }
