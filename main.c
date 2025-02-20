@@ -55,7 +55,8 @@ float acc_to_velocity(float acceleration, double time_diff)
 
 void calculate_forces(struct car* car, double time_diff)
 {
-    // FIXME: the car wont keep on the circle when turning
+    // FIXME: the car wont keep on the circle when turning - check if the
+    // turning need to be happen from the middle of the car or the back
     car->acceleration = force_to_acc(car->force, car->mass);
     car->velocity += acc_to_velocity(car->acceleration, time_diff);
 
@@ -160,9 +161,8 @@ void draw_wheels(const struct car car, const Vector2 origin)
     DrawRectangleProMiddle((Rectangle){br_wheel.x, br_wheel.y, car.wheels.width,
                                        car.wheels.length},
                            origin, car.rotation, (Color){0, 0, 0, 255});
-
-#ifdef DEBUG_ACKERMANN
-    vector2 bm_wheel = {-(car.wheels.wheelbase / 2.f), 0};
+#if DEBUG_ACKERMANN
+    Vector2 bm_wheel = {-(car.wheels.wheelbase / 2.f), 0};
     bm_wheel         = Vector2Rotate(bm_wheel, radian(car.rotation));
     bm_wheel         = Vector2Add(bm_wheel, car.position);
     DrawRectangleProMiddle((Rectangle){bm_wheel.x, bm_wheel.y, car.wheels.width,
@@ -189,7 +189,8 @@ void draw_wheels(const struct car car, const Vector2 origin)
         tanf(radian(90 - car.wheels.steering_angle)) * car.wheels.wheelbase;
 
     Vector2 p = Vector2Create(car.rotation + 90, radius);
-    p         = Vector2Add(bm_wheel, p);
+    // from the middle of the car
+    p = Vector2Add(car.position, p);
     DrawPixelV(p, (Color){0, 0, 0, 255});
     DrawCircleV(p, radius, (Color){0, 0, 0, 255});
 #endif
@@ -219,7 +220,25 @@ void draw_car(const struct car car, const Vector2 origin)
                                      car.length / 15, car.width / 3},
                          origin, car.rotation, RED);
     }
-    // DrawCircle(car.position.x, car.position.y, 4, (Color){0, 0, 0, 255});
+
+    if (car.velocity < -0.001) {
+        float length = sqrtf(powf(car.length, 2) + powf(car.width, 2)) / 2;
+        float angle  = degree(tanhf(car.width / car.length));
+        Vector2 back_left =
+            Vector2Subtract((Vector2){car.position.x, car.position.y},
+                            Vector2Create(car.rotation + angle, length));
+        Vector2 back_left_light = Vector2Add(
+            Vector2Create(car.rotation + 90, car.width / 5 * 1), back_left);
+        DrawRectanglePro((Rectangle){back_left_light.x, back_left_light.y,
+                                     car.length / 15, car.width / 5},
+                         origin, car.rotation, WHITE);
+
+        Vector2 back_right_light = Vector2Add(
+            Vector2Create(car.rotation + 90, car.width / 5 * 3), back_left);
+        DrawRectanglePro((Rectangle){back_right_light.x, back_right_light.y,
+                                     car.length / 15, car.width / 5},
+                         origin, car.rotation, WHITE);
+    }
 }
 
 int main(int argc, char const** argv)
