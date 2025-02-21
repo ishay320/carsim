@@ -60,7 +60,7 @@ void calculate_forces(struct car* car, double time_diff)
     car->acceleration = force_to_acc(car->force, car->mass);
     car->velocity += acc_to_velocity(car->acceleration, time_diff);
 
-    if (fabs(car->wheels.steering_angle) < 1e-3) {  // Going straight
+    if (fabs(car->wheels.steering_angle) < 1e-4) {  // Going straight
         car->position =
             Vector2Add(car->position,
                        Vector2Create(car->rotation, car->velocity * time_diff));
@@ -168,9 +168,6 @@ void draw_wheels(const struct car car, const Vector2 origin)
     DrawRectangleProMiddle((Rectangle){bm_wheel.x, bm_wheel.y, car.wheels.width,
                                        car.wheels.length},
                            origin, car.rotation, (Color){0, 0, 0, 255});
-    DrawLineEx(bm_wheel,
-               Vector2Add(Vector2Create(car.rotation + 90, 10), bm_wheel), 0.3,
-               (Color){255, 0, 0, 255});
     Vector2 fm_wheel = {+(car.wheels.wheelbase / 2.f), 0};
     fm_wheel         = Vector2Rotate(fm_wheel, radian(car.rotation));
     fm_wheel         = Vector2Add(fm_wheel, car.position);
@@ -178,21 +175,27 @@ void draw_wheels(const struct car car, const Vector2 origin)
                                        car.wheels.length},
                            origin, car.rotation + car.wheels.steering_angle,
                            (Color){0, 0, 0, 255});
-    DrawLineEx(
-        fm_wheel,
-        Vector2Add(
-            Vector2Create(car.rotation + car.wheels.steering_angle + 90, 10),
-            fm_wheel),
-        0.3, (Color){255, 0, 0, 255});
 
     float radius =
         tanf(radian(90 - car.wheels.steering_angle)) * car.wheels.wheelbase;
 
+    DrawLineEx(bm_wheel,
+               Vector2Add(Vector2Create(car.rotation + 90, radius), bm_wheel),
+               0.3, (Color){255, 0, 0, 255});
+    DrawLineEx(
+        fm_wheel,
+        Vector2Add(Vector2Create(car.rotation + car.wheels.steering_angle + 90,
+                                 radius),
+                   fm_wheel),
+        0.3, (Color){255, 0, 0, 255});
+
     Vector2 p = Vector2Create(car.rotation + 90, radius);
     // from the middle of the car
     p = Vector2Add(car.position, p);
+    // from the middle of the car
+    // p = Vector2Add(bm_wheel, p);
     DrawPixelV(p, (Color){0, 0, 0, 255});
-    DrawCircleV(p, radius, (Color){0, 0, 0, 255});
+    DrawCircleLinesV(p, radius, (Color){0, 0, 0, 255});
 #endif
 }
 
