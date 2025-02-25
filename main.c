@@ -1,3 +1,4 @@
+#include <float.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -28,7 +29,6 @@ struct car {
     // forces
     float mass;
     float force;
-    float acceleration;
     float velocity;  // m/s (multiply by 3.6 to get km/h)
 
     // pedal params
@@ -55,12 +55,10 @@ float acc_to_velocity(float acceleration, double time_diff)
 
 void calculate_forces(struct car* car, double time_diff)
 {
-    // FIXME: the car wont keep on the circle when turning - check if the
-    // turning need to be happen from the middle of the car or the back
-    car->acceleration = force_to_acc(car->force, car->mass);
-    car->velocity += acc_to_velocity(car->acceleration, time_diff);
+    float acceleration = force_to_acc(car->force, car->mass);
+    car->velocity += acc_to_velocity(acceleration, time_diff);
 
-    if (fabs(car->wheels.steering_angle) < 1e-4) {  // Going straight
+    if (fabs(car->wheels.steering_angle) < FLT_EPSILON) {  // Going straight
         car->position =
             Vector2Add(car->position,
                        Vector2Create(car->rotation, car->velocity * time_diff));
@@ -68,18 +66,22 @@ void calculate_forces(struct car* car, double time_diff)
     else {
         float steering_angle_rad = radian(car->wheels.steering_angle);
         float wheelbase          = car->wheels.wheelbase;
-        float radius             = wheelbase / tan(steering_angle_rad);
+        Vector2 bm               = Vector2Subtract(
+            car->position, Vector2Create(car->rotation, wheelbase / 2));
 
+        float radius           = wheelbase / tan(steering_angle_rad);
         float angular_velocity = car->velocity / radius;
         float delta_theta = angular_velocity * time_diff;  // Change in angle
 
         Vector2 next_pos = {sin(delta_theta) * radius,
                             radius - cos(delta_theta) * radius};
 
-        next_pos      = Vector2Rotate(next_pos, radian(car->rotation));
-        car->position = Vector2Add(car->position, next_pos);
+        next_pos = Vector2Rotate(next_pos, radian(car->rotation));
+        bm       = Vector2Add(bm, next_pos);
 
         car->rotation += degree(delta_theta);
+        car->position =
+            Vector2Add(bm, Vector2Create(car->rotation, wheelbase / 2));
     }
 }
 
@@ -252,22 +254,21 @@ int main(int argc, char const** argv)
     SetTargetFPS(60);
     double time = GetTime();
 
-    struct car car = {.color        = GREEN,
-                      .width        = 3,
-                      .length       = 5,
-                      .position     = {5, 5},
-                      .rotation     = 0,
-                      .wheels       = {.steering_angle     = 0,
-                                       .max_steering_angle = 45,
-                                       .wheelspace         = 3,
-                                       .wheelbase          = 5,
-                                       .width              = 0.6,
-                                       .length             = 1},
-                      .breaks       = false,
-                      .mass         = 20,
-                      .force        = 0,
-                      .acceleration = 0,
-                      .velocity     = 0,
+    struct car car = {.color    = GREEN,
+                      .width    = 3,
+                      .length   = 5,
+                      .position = {5, 5},
+                      .rotation = 0,
+                      .wheels   = {.steering_angle     = 0,
+                                   .max_steering_angle = 45,
+                                   .wheelspace         = 3,
+                                   .wheelbase          = 5,
+                                   .width              = 0.6,
+                                   .length             = 1},
+                      .breaks   = false,
+                      .mass     = 20,
+                      .force    = 0,
+                      .velocity = 0,
 
                       .max_force = 10};
 
