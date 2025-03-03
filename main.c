@@ -8,19 +8,19 @@
 
 struct car {
     Color color;
-    float width;
-    float length;
-    Vector2 position;  // middle of the car
-    float rotation;    // in degrees
+    float width_m;
+    float length_m;
+    Vector2 position;    // middle of the car
+    float rotation_deg;  // in degrees
 
     struct {
-        float steering_angle;
-        float max_steering_angle;
-        float wheelspace;  // left and right
-        float wheelbase;   // front back
+        float steering_angle_deg;
+        float max_steering_angle_deg;
+        float wheelspace_m;  // left and right
+        float wheelbase_m;   // front back
 
-        float width;
-        float length;
+        float width_m;
+        float length_m;
     } wheels;
 
     // state
@@ -28,7 +28,7 @@ struct car {
 
     // forces
     float mass;
-    float force;
+    float current_force;
     float velocity;  // m/s (multiply by 3.6 to get km/h)
 
     // pedal params
@@ -55,19 +55,19 @@ float acc_to_velocity(float acceleration, double time_diff)
 
 void calculate_forces(struct car* car, double time_diff)
 {
-    float acceleration = force_to_acc(car->force, car->mass);
+    float acceleration = force_to_acc(car->current_force, car->mass);
     car->velocity += acc_to_velocity(acceleration, time_diff);
 
-    if (fabs(car->wheels.steering_angle) < FLT_EPSILON) {  // Going straight
-        car->position =
-            Vector2Add(car->position,
-                       Vector2Create(car->rotation, car->velocity * time_diff));
+    if (fabs(car->wheels.steering_angle_deg) < FLT_EPSILON) {  // Going straight
+        car->position = Vector2Add(
+            car->position,
+            Vector2Create(car->rotation_deg, car->velocity * time_diff));
     }
     else {
-        float steering_angle_rad = radian(car->wheels.steering_angle);
-        float wheelbase          = car->wheels.wheelbase;
+        float steering_angle_rad = radian(car->wheels.steering_angle_deg);
+        float wheelbase          = car->wheels.wheelbase_m;
         Vector2 bm               = Vector2Subtract(
-            car->position, Vector2Create(car->rotation, wheelbase / 2));
+            car->position, Vector2Create(car->rotation_deg, wheelbase / 2));
 
         float radius           = wheelbase / tan(steering_angle_rad);
         float angular_velocity = car->velocity / radius;
@@ -76,12 +76,12 @@ void calculate_forces(struct car* car, double time_diff)
         Vector2 next_pos = {sin(delta_theta) * radius,
                             radius - cos(delta_theta) * radius};
 
-        next_pos = Vector2Rotate(next_pos, radian(car->rotation));
+        next_pos = Vector2Rotate(next_pos, radian(car->rotation_deg));
         bm       = Vector2Add(bm, next_pos);
 
-        car->rotation += degree(delta_theta);
+        car->rotation_deg += degree(delta_theta);
         car->position =
-            Vector2Add(bm, Vector2Create(car->rotation, wheelbase / 2));
+            Vector2Add(bm, Vector2Create(car->rotation_deg, wheelbase / 2));
     }
 }
 
@@ -130,68 +130,72 @@ void DrawRectangleProMiddle(Rectangle rec, Vector2 origin, float rotation,
 
 void draw_wheels(const struct car car, const Vector2 origin)
 {
-    Vector2 fl_wheel = {+(car.wheels.wheelbase / 2.f),
-                        -(car.wheels.wheelspace / 2.f)};
-    fl_wheel         = Vector2Rotate(fl_wheel, radian(car.rotation));
+    Vector2 fl_wheel = {+(car.wheels.wheelbase_m / 2.f),
+                        -(car.wheels.wheelspace_m / 2.f)};
+    fl_wheel         = Vector2Rotate(fl_wheel, radian(car.rotation_deg));
     fl_wheel         = Vector2Add(fl_wheel, car.position);
-    DrawRectangleProMiddle((Rectangle){fl_wheel.x, fl_wheel.y, car.wheels.width,
-                                       car.wheels.length},
-                           origin, car.rotation + car.wheels.steering_angle,
+    DrawRectangleProMiddle((Rectangle){fl_wheel.x, fl_wheel.y,
+                                       car.wheels.width_m, car.wheels.length_m},
+                           origin,
+                           car.rotation_deg + car.wheels.steering_angle_deg,
                            (Color){0, 0, 0, 255});
 
-    Vector2 fr_wheel = {+(car.wheels.wheelbase / 2.f),
-                        +(car.wheels.wheelspace / 2.f)};
-    fr_wheel         = Vector2Rotate(fr_wheel, radian(car.rotation));
+    Vector2 fr_wheel = {+(car.wheels.wheelbase_m / 2.f),
+                        +(car.wheels.wheelspace_m / 2.f)};
+    fr_wheel         = Vector2Rotate(fr_wheel, radian(car.rotation_deg));
     fr_wheel         = Vector2Add(fr_wheel, car.position);
-    DrawRectangleProMiddle((Rectangle){fr_wheel.x, fr_wheel.y, car.wheels.width,
-                                       car.wheels.length},
-                           origin, car.rotation + car.wheels.steering_angle,
+    DrawRectangleProMiddle((Rectangle){fr_wheel.x, fr_wheel.y,
+                                       car.wheels.width_m, car.wheels.length_m},
+                           origin,
+                           car.rotation_deg + car.wheels.steering_angle_deg,
                            (Color){0, 0, 0, 255});
 
-    Vector2 bl_wheel = {-(car.wheels.wheelbase / 2.f),
-                        -(car.wheels.wheelspace / 2.f)};
-    bl_wheel         = Vector2Rotate(bl_wheel, radian(car.rotation));
+    Vector2 bl_wheel = {-(car.wheels.wheelbase_m / 2.f),
+                        -(car.wheels.wheelspace_m / 2.f)};
+    bl_wheel         = Vector2Rotate(bl_wheel, radian(car.rotation_deg));
     bl_wheel         = Vector2Add(bl_wheel, car.position);
-    DrawRectangleProMiddle((Rectangle){bl_wheel.x, bl_wheel.y, car.wheels.width,
-                                       car.wheels.length},
-                           origin, car.rotation, (Color){0, 0, 0, 255});
+    DrawRectangleProMiddle((Rectangle){bl_wheel.x, bl_wheel.y,
+                                       car.wheels.width_m, car.wheels.length_m},
+                           origin, car.rotation_deg, (Color){0, 0, 0, 255});
 
-    Vector2 br_wheel = {-(car.wheels.wheelbase / 2.f),
-                        +(car.wheels.wheelspace / 2.f)};
-    br_wheel         = Vector2Rotate(br_wheel, radian(car.rotation));
+    Vector2 br_wheel = {-(car.wheels.wheelbase_m / 2.f),
+                        +(car.wheels.wheelspace_m / 2.f)};
+    br_wheel         = Vector2Rotate(br_wheel, radian(car.rotation_deg));
     br_wheel         = Vector2Add(br_wheel, car.position);
-    DrawRectangleProMiddle((Rectangle){br_wheel.x, br_wheel.y, car.wheels.width,
-                                       car.wheels.length},
-                           origin, car.rotation, (Color){0, 0, 0, 255});
+    DrawRectangleProMiddle((Rectangle){br_wheel.x, br_wheel.y,
+                                       car.wheels.width_m, car.wheels.length_m},
+                           origin, car.rotation_deg, (Color){0, 0, 0, 255});
 #if DEBUG_ACKERMANN
-    Vector2 bm_wheel = {-(car.wheels.wheelbase / 2.f), 0};
-    bm_wheel         = Vector2Rotate(bm_wheel, radian(car.rotation));
+    Vector2 bm_wheel = {-(car.wheels.wheelbase_m / 2.f), 0};
+    bm_wheel         = Vector2Rotate(bm_wheel, radian(car.rotation_deg));
     bm_wheel         = Vector2Add(bm_wheel, car.position);
-    DrawRectangleProMiddle((Rectangle){bm_wheel.x, bm_wheel.y, car.wheels.width,
-                                       car.wheels.length},
-                           origin, car.rotation, (Color){0, 0, 0, 255});
-    Vector2 fm_wheel = {+(car.wheels.wheelbase / 2.f), 0};
-    fm_wheel         = Vector2Rotate(fm_wheel, radian(car.rotation));
+    DrawRectangleProMiddle((Rectangle){bm_wheel.x, bm_wheel.y,
+                                       car.wheels.width_m, car.wheels.length_m},
+                           origin, car.rotation_deg, (Color){0, 0, 0, 255});
+    Vector2 fm_wheel = {+(car.wheels.wheelbase_m / 2.f), 0};
+    fm_wheel         = Vector2Rotate(fm_wheel, radian(car.rotation_deg));
     fm_wheel         = Vector2Add(fm_wheel, car.position);
-    DrawRectangleProMiddle((Rectangle){fm_wheel.x, fm_wheel.y, car.wheels.width,
-                                       car.wheels.length},
-                           origin, car.rotation + car.wheels.steering_angle,
+    DrawRectangleProMiddle((Rectangle){fm_wheel.x, fm_wheel.y,
+                                       car.wheels.width_m, car.wheels.length_m},
+                           origin,
+                           car.rotation_deg + car.wheels.steering_angle_deg,
                            (Color){0, 0, 0, 255});
 
-    float radius =
-        tanf(radian(90 - car.wheels.steering_angle)) * car.wheels.wheelbase;
+    float radius = tanf(radian(90 - car.wheels.steering_angle_deg)) *
+                   car.wheels.wheelbase_m;
 
-    DrawLineEx(bm_wheel,
-               Vector2Add(Vector2Create(car.rotation + 90, radius), bm_wheel),
-               0.3, (Color){255, 0, 0, 255});
     DrawLineEx(
-        fm_wheel,
-        Vector2Add(Vector2Create(car.rotation + car.wheels.steering_angle + 90,
-                                 radius),
-                   fm_wheel),
-        0.3, (Color){255, 0, 0, 255});
+        bm_wheel,
+        Vector2Add(Vector2Create(car.rotation_deg + 90, radius), bm_wheel), 0.3,
+        (Color){255, 0, 0, 255});
+    DrawLineEx(fm_wheel,
+               Vector2Add(Vector2Create(car.rotation_deg +
+                                            car.wheels.steering_angle_deg + 90,
+                                        radius),
+                          fm_wheel),
+               0.3, (Color){255, 0, 0, 255});
 
-    Vector2 p = Vector2Create(car.rotation + 90, radius);
+    Vector2 p = Vector2Create(car.rotation_deg + 90, radius);
     // from the middle of the car
     p = Vector2Add(car.position, p);
     // from the middle of the car
@@ -204,46 +208,54 @@ void draw_wheels(const struct car car, const Vector2 origin)
 void draw_car(const struct car car, const Vector2 origin)
 {
     DrawRectangleProMiddle(
-        (Rectangle){car.position.x, car.position.y, car.width, car.length},
-        origin, car.rotation, car.color);
+        (Rectangle){car.position.x, car.position.y, car.width_m, car.length_m},
+        origin, car.rotation_deg, car.color);
 
     draw_wheels(car, origin);
 
     if (car.breaks) {
-        float length = sqrtf(powf(car.length, 2) + powf(car.width, 2)) / 2;
-        float angle  = degree(tanhf(car.width / car.length));
+        float length = sqrtf(powf(car.length_m, 2) + powf(car.width_m, 2)) / 2;
+        float angle  = degree(tanhf(car.width_m / car.length_m));
         Vector2 back_left =
             Vector2Subtract((Vector2){car.position.x, car.position.y},
-                            Vector2Create(car.rotation + angle, length));
-        DrawRectanglePro((Rectangle){back_left.x, back_left.y, car.length / 15,
-                                     car.width / 3},
-                         origin, car.rotation, RED);
+                            Vector2Create(car.rotation_deg + angle, length));
+        DrawRectanglePro((Rectangle){back_left.x, back_left.y,
+                                     car.length_m / 15, car.width_m / 3},
+                         origin, car.rotation_deg, RED);
 
         Vector2 back_right_light = Vector2Add(
-            Vector2Create(car.rotation + 90, car.width / 3 * 2), back_left);
+            Vector2Create(car.rotation_deg + 90, car.width_m / 3 * 2),
+            back_left);
         DrawRectanglePro((Rectangle){back_right_light.x, back_right_light.y,
-                                     car.length / 15, car.width / 3},
-                         origin, car.rotation, RED);
+                                     car.length_m / 15, car.width_m / 3},
+                         origin, car.rotation_deg, RED);
     }
 
     if (car.velocity < -0.001) {
-        float length = sqrtf(powf(car.length, 2) + powf(car.width, 2)) / 2;
-        float angle  = degree(tanhf(car.width / car.length));
+        float length = sqrtf(powf(car.length_m, 2) + powf(car.width_m, 2)) / 2;
+        float angle  = degree(tanhf(car.width_m / car.length_m));
         Vector2 back_left =
             Vector2Subtract((Vector2){car.position.x, car.position.y},
-                            Vector2Create(car.rotation + angle, length));
+                            Vector2Create(car.rotation_deg + angle, length));
         Vector2 back_left_light = Vector2Add(
-            Vector2Create(car.rotation + 90, car.width / 5 * 1), back_left);
+            Vector2Create(car.rotation_deg + 90, car.width_m / 5 * 1),
+            back_left);
         DrawRectanglePro((Rectangle){back_left_light.x, back_left_light.y,
-                                     car.length / 15, car.width / 5},
-                         origin, car.rotation, WHITE);
+                                     car.length_m / 15, car.width_m / 5},
+                         origin, car.rotation_deg, WHITE);
 
         Vector2 back_right_light = Vector2Add(
-            Vector2Create(car.rotation + 90, car.width / 5 * 3), back_left);
+            Vector2Create(car.rotation_deg + 90, car.width_m / 5 * 3),
+            back_left);
         DrawRectanglePro((Rectangle){back_right_light.x, back_right_light.y,
-                                     car.length / 15, car.width / 5},
-                         origin, car.rotation, WHITE);
+                                     car.length_m / 15, car.width_m / 5},
+                         origin, car.rotation_deg, WHITE);
     }
+}
+float max_steering_angle(float wheelbase, float wheelspace,
+                         float turning_circle_m)
+{
+    return atanf(wheelbase / (turning_circle_m - wheelspace));
 }
 
 int main(int argc, char const** argv)
@@ -254,21 +266,26 @@ int main(int argc, char const** argv)
     SetTargetFPS(60);
     double time = GetTime();
 
-    struct car car = {.color    = GREEN,
-                      .width    = 3,
-                      .length   = 5,
-                      .position = {5, 5},
-                      .rotation = 0,
-                      .wheels   = {.steering_angle     = 0,
-                                   .max_steering_angle = 45,
-                                   .wheelspace         = 3,
-                                   .wheelbase          = 5,
-                                   .width              = 0.6,
-                                   .length             = 1},
-                      .breaks   = false,
-                      .mass     = 20,
-                      .force    = 0,
-                      .velocity = 0,
+    const float wheelbase_m      = 5;
+    const float wheelspace_m     = 3;
+    const float turning_circle_m = 10;
+    struct car car               = {
+                      .color         = GREEN,
+                      .width_m       = 3,
+                      .length_m      = 5,
+                      .position      = {5, 5},
+                      .rotation_deg  = 0,
+                      .wheels        = {.steering_angle_deg     = 0,
+                                        .max_steering_angle_deg = degree(max_steering_angle(
+                       wheelbase_m, wheelspace_m, turning_circle_m)),
+                                        .wheelspace_m           = wheelspace_m,
+                                        .wheelbase_m            = wheelbase_m,
+                                        .width_m                = 0.6,
+                                        .length_m               = 1},
+                      .breaks        = false,
+                      .mass          = 20,
+                      .current_force = 0,
+                      .velocity      = 0,
 
                       .max_force = 10};
 
@@ -307,7 +324,7 @@ int main(int argc, char const** argv)
         // logic
         car.breaks = false;
         if (IsKeyDown(KEY_UP)) {
-            car.force = 100;
+            car.current_force = 100;
             if (car.velocity < 0) {
                 car.breaks = true;
             }
@@ -315,36 +332,36 @@ int main(int argc, char const** argv)
         else if (IsKeyDown(KEY_DOWN)) {
             // TODO: make a better system
             if (car.velocity > 0) {  // breaks
-                car.force  = -250;
-                car.breaks = true;
+                car.current_force = -250;
+                car.breaks        = true;
             }
             else if (car.velocity > -100) {  // max speed in reverse
-                car.force = -50;
+                car.current_force = -50;
             }
             else {
-                car.force = 0;
+                car.current_force = 0;
             }
         }
         else {
-            car.force  = 0;
-            car.breaks = false;
+            car.current_force = 0;
+            car.breaks        = false;
         }
 
         // TODO: better friction system
         if (car.velocity > 0) {
-            car.force -= 10;
+            car.current_force -= 10;
         }
         if (car.velocity < 0) {
-            car.force += 10;
+            car.current_force += 10;
         }
 
         if (IsKeyDown(KEY_RIGHT) &&
-            car.wheels.steering_angle < car.wheels.max_steering_angle) {
-            car.wheels.steering_angle += 1;
+            car.wheels.steering_angle_deg < car.wheels.max_steering_angle_deg) {
+            car.wheels.steering_angle_deg += 1;
         }
-        if (IsKeyDown(KEY_LEFT) &&
-            car.wheels.steering_angle > -car.wheels.max_steering_angle) {
-            car.wheels.steering_angle -= 1;
+        if (IsKeyDown(KEY_LEFT) && car.wheels.steering_angle_deg >
+                                       -car.wheels.max_steering_angle_deg) {
+            car.wheels.steering_angle_deg -= 1;
         }
 
         camera.zoom += ((float)GetMouseWheelMove() * 0.05f);
