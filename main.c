@@ -87,34 +87,58 @@ void calculate_forces(struct car* car, double time_diff)
 
 float ms_to_kmh(float speed) { return speed * 3.6f; }
 
-void DrawSpeedometer(Rectangle pos, float speed_kmh, float max_speed)
+void DrawSpeedometer(Rectangle pos, float speed_kmh, float max_speed_kmh)
 {
-    // FIXME: the drawing is going outside the rectangle
-    const Vector2 middle = {pos.x + pos.width / 2, pos.y + pos.height / 2};
-    DrawCircle(middle.x, middle.y, 5, RED);
+    const float short_line = pos.height < pos.width ? pos.height : pos.width;
+    const Vector2 middle   = {pos.x + short_line / 2, pos.y + short_line / 2};
+    const int font_size    = 5;
+#ifdef SHOW_DRAW_OVERLAY
+    DrawRectangleLines(pos.x, pos.y, short_line, short_line, BLACK);
+#endif
 
-    const float needle_offset = 90 + 20;
-    const float needle_length = pos.width * 4.f / 5.f;
-    float needle_angle = needle_offset + (fabsf(speed_kmh) / max_speed) * 280;
-    Vector2 needle_end_point = Vector2Create(needle_angle, needle_length);
-    DrawLineEx(middle, Vector2Add(middle, needle_end_point), 3, RED);
+    DrawCircleV(middle, short_line / 2, (Color){210, 210, 210, 255});
+
+    const float needle_start_angle = 110;  // the start rotation of the needle
+    const float empty_space        = 80;
 
     // draw the labels
     const uint8_t labels_number = 10;
     for (uint8_t i = 1; i <= labels_number; i++) {
         char speed_text[32];
-        sprintf(speed_text, "%d", (int)(i / (float)labels_number * max_speed));
+        sprintf(speed_text, "%d",
+                (int)(i / (float)labels_number * max_speed_kmh));
+        int speed_text_size = MeasureText(speed_text, font_size);
+
+        const Vector2 direction =
+            Vector2Create((i / (float)labels_number) * (360 - empty_space) +
+                              needle_start_angle,
+                          1);
+        Vector2 speed_point_pos =
+            Vector2Add(Vector2Scale(direction, short_line / 2), middle);
         Vector2 speed_text_pos = Vector2Add(
-            Vector2Create(i / (float)labels_number * 280.f + needle_offset, 60),
-            middle);
-        int speed_text_size = MeasureText(speed_text, 5);
-        DrawText(speed_text, speed_text_pos.x - speed_text_size - 5,
-                 speed_text_pos.y, 5, BLACK);
-        DrawCircleV(speed_text_pos, 2, RED);
+            Vector2Scale(direction, short_line / (11 / 4.f)), middle);
+        Vector2 speed_point_line =
+            Vector2Add(Vector2Scale(direction, -font_size), speed_point_pos);
+
+        // draw the lines and the speed
+        DrawLineEx(speed_point_pos, speed_point_line, 2, RED);
+        DrawText(speed_text, speed_text_pos.x - (speed_text_size / 2.f),
+                 speed_text_pos.y - font_size, font_size, BLACK);
     }
-    char kmh[]   = "km/h";
-    int kmh_size = MeasureText(kmh, 5);
-    DrawText(kmh, pos.x + pos.width - kmh_size, pos.y + pos.height, 5, BLACK);
+    const char* kmh = "km/h";
+    int kmh_size    = MeasureText(kmh, font_size);
+    DrawText(kmh, pos.x + short_line - kmh_size,
+             pos.y + short_line - (font_size * 2), font_size, BLACK);
+
+    const float needle_length = short_line / 2;
+    float needle_angle =
+        needle_start_angle +
+        (fabsf(speed_kmh) / max_speed_kmh) * (360 - empty_space);
+    Vector2 needle_end_point = Vector2Create(needle_angle, needle_length);
+    DrawLineEx(middle, Vector2Add(middle, needle_end_point), 3, RED);
+
+    // point on the knob
+    DrawCircle(middle.x, middle.y, 5, GRAY);
 }
 
 void DrawRectangleProMiddle(Rectangle rec, Vector2 origin, float rotation,
@@ -313,10 +337,10 @@ int main(int argc, char const** argv)
                     car.velocity);
             DrawText(text, 100, 10, 25, (Color){0, 255, 0, 255});
             // speedometer
-            Rectangle speedometer_pos = {.x      = 50,
-                                         .y      = GetRenderHeight() - 120,
-                                         .width  = 100,
-                                         .height = 100};
+            Rectangle speedometer_pos = {.x      = 0,
+                                         .y      = GetRenderHeight() - 125,
+                                         .width  = 125,
+                                         .height = 125};
             DrawSpeedometer(speedometer_pos, ms_to_kmh(car.velocity), 100);
         }
         EndDrawing();
