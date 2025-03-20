@@ -69,21 +69,22 @@ float resistance_forces(const struct car* car, double time_diff)
 
     // TODO: add traction - engine force
     Vector2 resistance = Vector2Add(drag, rolling);
-    return sqrtf(resistance.x * resistance.x + resistance.y * resistance.y);
+    float force =
+        sqrtf(resistance.x * resistance.x + resistance.y * resistance.y);
+    if (car->velocity < 0) {
+        return -force;
+    }
+    else {
+        return force;
+    }
 }
 
 void calculate_forces(struct car* car, double time_diff)
 {
-    float acceleration = force_to_acc(car->current_force, car->c_mass);
+    float rf           = resistance_forces(car, time_diff);
+    float acceleration = force_to_acc(car->current_force - rf, car->c_mass);
+    printf("rf = %f cf = %f\n", rf, car->current_force);
     car->velocity += acc_to_velocity(acceleration, time_diff);
-
-    float rf = resistance_forces(car, time_diff);
-    if (car->velocity < 0) {
-        car->velocity += rf;
-    }
-    else {
-        car->velocity -= rf;
-    }
 
     if (fabs(car->wheels.steering_angle_deg) < FLT_EPSILON) {  // Going straight
         car->position = Vector2Add(
@@ -335,8 +336,8 @@ int main(int argc, char const** argv)
                                        .length_m               = 1},
                       .breaks       = false,
                       .c_mass       = 20,
-                      .c_drag       = 0.00025,
-                      .c_rolling    = 0.015,
+                      .c_drag       = 0.25,
+                      .c_rolling    = 30.,
 
                       .current_force = 0,
                       .velocity      = 0,
