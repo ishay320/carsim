@@ -27,7 +27,9 @@ struct car {
     bool breaks;
 
     // forces
-    float mass;
+    float c_mass;
+    float c_drag;
+    float c_rolling;
     float current_force;
     float velocity;  // m/s (multiply by 3.6 to get km/h)
 
@@ -53,10 +55,35 @@ float acc_to_velocity(float acceleration, double time_diff)
     return acceleration * time_diff;
 }
 
+float resistance_forces(const struct car* car, double time_diff)
+{
+    Vector2 v = Vector2Create(car->rotation_deg, car->velocity * time_diff);
+
+    Vector2 drag;
+    drag.x = -car->c_drag * v.x * car->velocity;
+    drag.y = -car->c_drag * v.y * car->velocity;
+
+    Vector2 rolling;
+    rolling.x = -car->c_rolling * v.x;
+    rolling.y = -car->c_rolling * v.y;
+
+    // TODO: add traction - engine force
+    Vector2 resistance = Vector2Add(drag, rolling);
+    return sqrtf(resistance.x * resistance.x + resistance.y * resistance.y);
+}
+
 void calculate_forces(struct car* car, double time_diff)
 {
-    float acceleration = force_to_acc(car->current_force, car->mass);
+    float acceleration = force_to_acc(car->current_force, car->c_mass);
     car->velocity += acc_to_velocity(acceleration, time_diff);
+
+    float rf = resistance_forces(car, time_diff);
+    if (car->velocity < 0) {
+        car->velocity += rf;
+    }
+    else {
+        car->velocity -= rf;
+    }
 
     if (fabs(car->wheels.steering_angle_deg) < FLT_EPSILON) {  // Going straight
         car->position = Vector2Add(
@@ -294,20 +321,23 @@ int main(int argc, char const** argv)
     const float wheelspace_m     = 3;
     const float turning_circle_m = 10;
     struct car car               = {
-                      .color         = GREEN,
-                      .width_m       = 3,
-                      .length_m      = 5,
-                      .position      = {5, 5},
-                      .rotation_deg  = 0,
-                      .wheels        = {.steering_angle_deg     = 0,
-                                        .max_steering_angle_deg = degree(max_steering_angle(
+                      .color        = GREEN,
+                      .width_m      = 3,
+                      .length_m     = 5,
+                      .position     = {5, 5},
+                      .rotation_deg = 0,
+                      .wheels       = {.steering_angle_deg     = 0,
+                                       .max_steering_angle_deg = degree(max_steering_angle(
                        wheelbase_m, wheelspace_m, turning_circle_m)),
-                                        .wheelspace_m           = wheelspace_m,
-                                        .wheelbase_m            = wheelbase_m,
-                                        .width_m                = 0.6,
-                                        .length_m               = 1},
-                      .breaks        = false,
-                      .mass          = 20,
+                                       .wheelspace_m           = wheelspace_m,
+                                       .wheelbase_m            = wheelbase_m,
+                                       .width_m                = 0.6,
+                                       .length_m               = 1},
+                      .breaks       = false,
+                      .c_mass       = 20,
+                      .c_drag       = 0.00025,
+                      .c_rolling    = 0.015,
+
                       .current_force = 0,
                       .velocity      = 0,
 
@@ -369,14 +399,6 @@ int main(int argc, char const** argv)
         else {
             car.current_force = 0;
             car.breaks        = false;
-        }
-
-        // TODO: better friction system
-        if (car.velocity > 0) {
-            car.current_force -= 10;
-        }
-        if (car.velocity < 0) {
-            car.current_force += 10;
         }
 
         if (IsKeyDown(KEY_RIGHT) &&
