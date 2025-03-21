@@ -83,7 +83,6 @@ void calculate_forces(struct car* car, double time_diff)
 {
     float rf           = resistance_forces(car, time_diff);
     float acceleration = force_to_acc(car->current_force - rf, car->c_mass);
-    printf("rf = %f cf = %f\n", rf, car->current_force);
     car->velocity += acc_to_velocity(acceleration, time_diff);
 
     if (fabs(car->wheels.steering_angle_deg) < FLT_EPSILON) {  // Going straight
@@ -379,9 +378,12 @@ int main(int argc, char const** argv)
         // logic
         car.breaks = false;
         if (IsKeyDown(KEY_UP)) {
-            car.current_force = 100;
             if (car.velocity < 0) {
-                car.breaks = true;
+                car.breaks        = true;
+                car.current_force = 250;
+            }
+            else {
+                car.current_force = 100;
             }
         }
         else if (IsKeyDown(KEY_DOWN)) {
