@@ -25,11 +25,14 @@ struct car {
 
     // state
     bool breaks;
+    float motor_force;
 
     // forces
     float c_mass;
     float c_drag;
     float c_rolling;
+
+    // physics calculation
     float current_force;
     float velocity;  // m/s (multiply by 3.6 to get km/h)
 
@@ -82,7 +85,8 @@ float resistance_forces(const struct car* car, double time_diff)
 void calculate_forces(struct car* car, double time_diff)
 {
     float rf           = resistance_forces(car, time_diff);
-    float acceleration = force_to_acc(car->current_force - rf, car->c_mass);
+    car->current_force = car->motor_force - rf;
+    float acceleration = force_to_acc(car->current_force, car->c_mass);
     car->velocity += acc_to_velocity(acceleration, time_diff);
 
     if (fabs(car->wheels.steering_angle_deg) < FLT_EPSILON) {  // Going straight
@@ -334,9 +338,10 @@ int main(int argc, char const** argv)
                                        .width_m                = 0.6,
                                        .length_m               = 1},
                       .breaks       = false,
+                      .motor_force  = 0,
                       .c_mass       = 20,
                       .c_drag       = 0.25,
-                      .c_rolling    = 30.,
+                      .c_rolling    = 35.,
 
                       .current_force = 0,
                       .velocity      = 0,
@@ -379,29 +384,29 @@ int main(int argc, char const** argv)
         car.breaks = false;
         if (IsKeyDown(KEY_UP)) {
             if (car.velocity < 0) {
-                car.breaks        = true;
-                car.current_force = 250;
+                car.breaks      = true;
+                car.motor_force = 250;
             }
             else {
-                car.current_force = 100;
+                car.motor_force = 100;
             }
         }
         else if (IsKeyDown(KEY_DOWN)) {
             // TODO: make a better system
             if (car.velocity > 0) {  // breaks
-                car.current_force = -250;
-                car.breaks        = true;
+                car.motor_force = -250;
+                car.breaks      = true;
             }
             else if (car.velocity > -100) {  // max speed in reverse
-                car.current_force = -50;
+                car.motor_force = -50;
             }
             else {
-                car.current_force = 0;
+                car.motor_force = 0;
             }
         }
         else {
-            car.current_force = 0;
-            car.breaks        = false;
+            car.motor_force = 0;
+            car.breaks      = false;
         }
 
         if (IsKeyDown(KEY_RIGHT) &&
