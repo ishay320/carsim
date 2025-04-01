@@ -1,10 +1,28 @@
 #include <float.h>
 #include <math.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 
 #include "raylib.h"
 #include "raymath.h"
+
+typedef enum {
+    COLOR_ROAD,
+    COLOR_GRASS,
+    COLOR_WHEELS,
+    COLOR_CAR,
+    COLOR_YELOW_LINE,
+    COLOR_COUNT
+} ColorType;
+
+const Color COLORS[COLOR_COUNT] = {
+    [COLOR_ROAD]       = {0xA2, 0xA2, 0xA2, 0xff},
+    [COLOR_GRASS]      = {0x84, 0x93, 0x24, 0xff},
+    [COLOR_WHEELS]     = {0x2F, 0x2F, 0x2F, 0xff},
+    [COLOR_CAR]        = {0xDD, 0x1C, 0x1A, 0xff},
+    [COLOR_YELOW_LINE] = YELLOW,
+};
 
 struct car {
     Color color;
@@ -185,25 +203,24 @@ void DrawRectangleProMiddle(Rectangle rec, Vector2 origin, float rotation,
 
 void draw_wheels(const struct car car, const Vector2 origin)
 {
-    Vector2 fl_wheel = {+(car.wheels.wheelbase_m / 2.f),
-                        -(car.wheels.wheelspace_m / 2.f)};
-    fl_wheel         = Vector2Rotate(fl_wheel, radian(car.rotation_deg));
-    fl_wheel         = Vector2Add(fl_wheel, car.position);
-    DrawRectangleProMiddle((Rectangle){fl_wheel.x, fl_wheel.y,
-                                       car.wheels.width_m, car.wheels.length_m},
-                           origin,
-                           car.rotation_deg + car.wheels.steering_angle_deg,
-                           (Color){0, 0, 0, 255});
+    const Color wheels_color = COLORS[COLOR_WHEELS];
+    Vector2 fl_wheel         = {+(car.wheels.wheelbase_m / 2.f),
+                                -(car.wheels.wheelspace_m / 2.f)};
+    fl_wheel = Vector2Rotate(fl_wheel, radian(car.rotation_deg));
+    fl_wheel = Vector2Add(fl_wheel, car.position);
+    DrawRectangleProMiddle(
+        (Rectangle){fl_wheel.x, fl_wheel.y, car.wheels.width_m,
+                    car.wheels.length_m},
+        origin, car.rotation_deg + car.wheels.steering_angle_deg, wheels_color);
 
     Vector2 fr_wheel = {+(car.wheels.wheelbase_m / 2.f),
                         +(car.wheels.wheelspace_m / 2.f)};
     fr_wheel         = Vector2Rotate(fr_wheel, radian(car.rotation_deg));
     fr_wheel         = Vector2Add(fr_wheel, car.position);
-    DrawRectangleProMiddle((Rectangle){fr_wheel.x, fr_wheel.y,
-                                       car.wheels.width_m, car.wheels.length_m},
-                           origin,
-                           car.rotation_deg + car.wheels.steering_angle_deg,
-                           (Color){0, 0, 0, 255});
+    DrawRectangleProMiddle(
+        (Rectangle){fr_wheel.x, fr_wheel.y, car.wheels.width_m,
+                    car.wheels.length_m},
+        origin, car.rotation_deg + car.wheels.steering_angle_deg, wheels_color);
 
     Vector2 bl_wheel = {-(car.wheels.wheelbase_m / 2.f),
                         -(car.wheels.wheelspace_m / 2.f)};
@@ -211,7 +228,7 @@ void draw_wheels(const struct car car, const Vector2 origin)
     bl_wheel         = Vector2Add(bl_wheel, car.position);
     DrawRectangleProMiddle((Rectangle){bl_wheel.x, bl_wheel.y,
                                        car.wheels.width_m, car.wheels.length_m},
-                           origin, car.rotation_deg, (Color){0, 0, 0, 255});
+                           origin, car.rotation_deg, wheels_color);
 
     Vector2 br_wheel = {-(car.wheels.wheelbase_m / 2.f),
                         +(car.wheels.wheelspace_m / 2.f)};
@@ -219,7 +236,7 @@ void draw_wheels(const struct car car, const Vector2 origin)
     br_wheel         = Vector2Add(br_wheel, car.position);
     DrawRectangleProMiddle((Rectangle){br_wheel.x, br_wheel.y,
                                        car.wheels.width_m, car.wheels.length_m},
-                           origin, car.rotation_deg, (Color){0, 0, 0, 255});
+                           origin, car.rotation_deg, wheels_color);
 #if DEBUG_ACKERMANN
     Vector2 bm_wheel = {-(car.wheels.wheelbase_m / 2.f), 0};
     bm_wheel         = Vector2Rotate(bm_wheel, radian(car.rotation_deg));
@@ -313,6 +330,38 @@ float max_steering_angle(float wheelbase, float wheelspace,
     return atanf(wheelbase / (turning_circle_m - wheelspace));
 }
 
+#define MAX_WIDTH 10
+#define MAX_HEIGHT 10
+// TODO: move to file outide the exe
+const bool level_road[MAX_HEIGHT][MAX_WIDTH] = {
+    {1, 1, 1, 1, 1, 1, 1, 1}, {0, 0, 1, 0, 0, 0, 0, 1},
+    {0, 1, 1, 1, 0, 0, 0, 1}, {0, 1, 1, 1, 0, 0, 0, 1},
+    {0, 0, 0, 0, 0, 0, 0, 1},
+};
+
+void drawBackground()
+{
+    ClearBackground(COLORS[COLOR_GRASS]);
+    float jump_size = 10;
+    float width     = GetRenderWidth();
+    float height    = GetRenderHeight();
+
+    // TODO: render less because of the zoom
+    for (size_t x = 0; x < MAX_WIDTH; x++) {
+        for (size_t y = 0; y < MAX_HEIGHT; y++) {
+            size_t x_pos = x * jump_size;
+            size_t y_pos = y * jump_size;
+            if (level_road[y][x]) {
+                DrawRectanglePro(
+                    (Rectangle){x_pos, y_pos, jump_size, jump_size},
+                    (Vector2){0, 0}, 0, COLORS[COLOR_ROAD]);
+            }
+        }
+    }
+
+    return;
+}
+
 int main(int argc, char const** argv)
 {
     const int screen_width  = 800;
@@ -361,16 +410,19 @@ int main(int argc, char const** argv)
         // draw
         BeginMode2D(camera);
         {
-            ClearBackground(RAYWHITE);
+            drawBackground();
             draw_car(car, origin);
         }
         EndMode2D();
         {
             DrawFPS(10, 10);
+#ifdef DEBUG
             char text[255];
             sprintf(text, "x: %f, y: %f, s: %f", car.position.x, car.position.y,
                     car.velocity);
             DrawText(text, 100, 10, 25, (Color){0, 255, 0, 255});
+#endif  // DEBUG
+
             // speedometer
             Rectangle speedometer_pos = {.x      = 0,
                                          .y      = GetRenderHeight() - 125,
