@@ -20,7 +20,7 @@ const Color COLORS[COLOR_COUNT] = {
     [COLOR_ROAD]       = {0xA2, 0xA2, 0xA2, 0xff},
     [COLOR_GRASS]      = {0x84, 0x93, 0x24, 0xff},
     [COLOR_WHEELS]     = {0x2F, 0x2F, 0x2F, 0xff},
-    [COLOR_CAR]        = {0xDD, 0x1C, 0x1A, 0xff},
+    [COLOR_CAR]        = {0x40, 0x62, 0xBB, 0xff},
     [COLOR_YELOW_LINE] = YELLOW,
 };
 
@@ -279,11 +279,11 @@ void draw_wheels(const struct car car, const Vector2 origin)
 
 void draw_car(const struct car car, const Vector2 origin)
 {
+    draw_wheels(car, origin);
+
     DrawRectangleProMiddle(
         (Rectangle){car.position.x, car.position.y, car.width_m, car.length_m},
         origin, car.rotation_deg, car.color);
-
-    draw_wheels(car, origin);
 
     if (car.breaks) {
         float length = sqrtf(powf(car.length_m, 2) + powf(car.width_m, 2)) / 2;
@@ -374,7 +374,7 @@ int main(int argc, char const** argv)
     const float wheelspace_m     = 3;
     const float turning_circle_m = 10;
     struct car car               = {
-                      .color        = GREEN,
+                      .color        = COLORS[COLOR_CAR],
                       .width_m      = 3,
                       .length_m     = 5,
                       .position     = {5, 5},
