@@ -2,3 +2,5 @@
 main
 raylib/
 compile_commands.json
+
+*.o

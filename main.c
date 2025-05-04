@@ -614,6 +614,10 @@ int main(int argc, char const** argv)
             camera.zoom = 10.0f;
         }
 
+        camera.target = Vector2Add(
+            car.position, (Vector2){-screen_width / 2.f * 1 / camera.zoom,
+                                    -screen_height / 2.f * 1 / camera.zoom});
+
         calculate_forces(&car, delta_time);
 
         // points calculations
