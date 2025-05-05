@@ -437,6 +437,51 @@ float count_points(struct stage stage, float x, float y)
     return sum;
 }
 
+struct game_configs {
+    char* map_relative_path;
+    float pixels_per_meter;
+};
+
+bool process_config(struct game_configs* game_configs, const char* config_path)
+{
+    // TODO: free the configurations
+    struct configs configs = read_config(config_path);
+
+    const char* map_path_key  = "map_path";
+    struct config* c_map_path = find_config(configs, map_path_key);
+    if (!c_map_path) {
+        printf("ERROR: %s is not found\n", map_path_key);
+        goto error;
+    }
+    if (c_map_path->type != VALUE_STR) {
+        printf("ERROR: %s is not a string\n", map_path_key);
+        goto error;
+    }
+    game_configs->map_relative_path = c_map_path->value.s;
+
+    const char* pixels_per_meter_key = "pixels_per_meter";
+    struct config* c_pixels_per_meter =
+        find_config(configs, pixels_per_meter_key);
+    if (!c_pixels_per_meter) {
+        printf("ERROR: %s is not found\n", pixels_per_meter_key);
+        goto error;
+    }
+    if (c_pixels_per_meter->type != VALUE_FLOAT) {
+        printf("ERROR: %s is not a float\n", pixels_per_meter_key);
+        goto error;
+    }
+    game_configs->pixels_per_meter = c_pixels_per_meter->value.f;
+    if (game_configs->pixels_per_meter == 0) {
+        printf("ERROR: %s param cannot be 0\n", pixels_per_meter_key);
+        goto error;
+    }
+    return true;
+
+error:
+    free_config(&configs);
+    return false;
+}
+
 int main(int argc, char const** argv)
 {
     if (argc < 2) {
@@ -444,41 +489,14 @@ int main(int argc, char const** argv)
         return 1;
     }
     const char* config_path = argv[1];
-    struct configs configs  = read_config(config_path);
-
-    const char* map_path_key  = "map_path";
-    struct config* c_map_path = find_config(configs, map_path_key);
-    if (!c_map_path) {
-        printf("ERROR: %s is not found\n", map_path_key);
-        return 1;
-    }
-    if (c_map_path->type != VALUE_STR) {
-        printf("ERROR: %s is not a string\n", map_path_key);
-        return 1;
-    }
-    char* map_relative_path = NULL;
-    map_relative_path       = c_map_path->value.s;
-
-    const char* pixels_per_meter_key = "pixels_per_meter";
-    struct config* c_pixels_per_meter =
-        find_config(configs, pixels_per_meter_key);
-    if (!c_pixels_per_meter) {
-        printf("ERROR: %s is not found\n", pixels_per_meter_key);
-        return 1;
-    }
-    if (c_pixels_per_meter->type != VALUE_FLOAT) {
-        printf("ERROR: %s is not a float\n", pixels_per_meter_key);
-        return 1;
-    }
-    float pixels_per_meter;
-    pixels_per_meter = c_pixels_per_meter->value.f;
-    if (pixels_per_meter == 0) {
-        printf("ERROR: %s param cannot be 0\n", pixels_per_meter_key);
+    struct game_configs game_configs;
+    if (!process_config(&game_configs, config_path)) {
         return 1;
     }
 
-    char* full_map_path = join_basedir_with(config_path, map_relative_path);
-    Image map_seg       = LoadImage(full_map_path);
+    char* full_map_path =
+        join_basedir_with(config_path, game_configs.map_relative_path);
+    Image map_seg = LoadImage(full_map_path);
     free(full_map_path);
 
     const int screen_width  = 800;
@@ -489,7 +507,7 @@ int main(int argc, char const** argv)
     struct stage stage;
     stage.map_seg = map_seg;
     stage.texture = LoadTextureFromImage(map_seg);
-    stage.scale   = 1 / pixels_per_meter;
+    stage.scale   = 1 / game_configs.pixels_per_meter;
 
     double time = GetTime();
 
@@ -634,7 +652,6 @@ int main(int argc, char const** argv)
 
     UnloadTexture(stage.texture);
     CloseWindow();
-    free_config(&configs);
     UnloadImage(map_seg);
     return 0;
 }
