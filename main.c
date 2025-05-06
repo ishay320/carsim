@@ -10,6 +10,7 @@
 #include <sys/types.h>
 
 #include "config.h"
+#include "physics.h"
 #include "raylib.h"
 #include "raymath.h"
 
@@ -64,24 +65,6 @@ struct car {
     // pedal params
     float max_force;
 };
-
-float radian(float degree) { return DEG2RAD * degree; }
-float degree(float radian) { return RAD2DEG * radian; }
-
-Vector2 Vector2FromPolar(float angle_deg, float magnitude)
-{
-    Vector2 out;
-    out.x = cosf(radian(angle_deg)) * magnitude;
-    out.y = sinf(radian(angle_deg)) * magnitude;
-    return out;
-}
-
-float force_to_acc(float force, float mass) { return force / mass; }
-
-float acc_to_velocity(float acceleration, double delta_time)
-{
-    return acceleration * delta_time;
-}
 
 float resistance_forces(const struct car* car, double delta_time)
 {
@@ -140,8 +123,6 @@ void calculate_forces(struct car* car, double delta_time)
             Vector2Add(bm, Vector2FromPolar(car->rotation_deg, wheelbase / 2));
     }
 }
-
-float ms_to_kmh(float speed) { return speed * 3.6f; }
 
 void DrawSpeedometer(Rectangle pos, float speed_kmh, float max_speed_kmh)
 {
@@ -347,12 +328,6 @@ void draw_car(const struct car car, const Vector2 origin)
                                      car.length_m / 15, car.width_m / 5},
                          origin, car.rotation_deg, WHITE);
     }
-}
-
-float max_steering_angle(float wheelbase, float wheelspace,
-                         float turning_circle_m)
-{
-    return atanf(wheelbase / (turning_circle_m - wheelspace));
 }
 
 enum type {
