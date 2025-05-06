@@ -90,38 +90,50 @@ float resistance_forces(const struct car* car, double delta_time)
     }
 }
 
-void calculate_forces(struct car* car, double delta_time)
+/**
+ * @brief Calculate the forces and returns copy of the car with the updated
+ * parameters
+ *
+ * @param car
+ * @param delta_time
+ * @return The updated car with the new position
+ */
+struct car calculate_forces(const struct car* car, double delta_time)
 {
-    float rf           = resistance_forces(car, delta_time);
-    car->current_force = car->motor_force - rf;
-    float acceleration = force_to_acc(car->current_force, car->c_mass);
-    car->velocity += acc_to_velocity(acceleration, delta_time);
+    struct car car_new    = *car;
+    float rf              = resistance_forces(&car_new, delta_time);
+    car_new.current_force = car_new.motor_force - rf;
+    float acceleration    = force_to_acc(car_new.current_force, car_new.c_mass);
+    car_new.velocity += acc_to_velocity(acceleration, delta_time);
 
-    if (fabs(car->wheels.steering_angle_deg) < FLT_EPSILON) {  // Going straight
-        car->position = Vector2Add(
-            car->position,
-            Vector2FromPolar(car->rotation_deg, car->velocity * delta_time));
+    if (fabs(car_new.wheels.steering_angle_deg) <
+        FLT_EPSILON) {  // Going straight
+        car_new.position = Vector2Add(
+            car_new.position, Vector2FromPolar(car_new.rotation_deg,
+                                               car_new.velocity * delta_time));
     }
     else {
-        float steering_angle_rad = radian(car->wheels.steering_angle_deg);
-        float wheelbase          = car->wheels.wheelbase_m;
+        float steering_angle_rad = radian(car_new.wheels.steering_angle_deg);
+        float wheelbase          = car_new.wheels.wheelbase_m;
         Vector2 bm               = Vector2Subtract(
-            car->position, Vector2FromPolar(car->rotation_deg, wheelbase / 2));
+            car_new.position,
+            Vector2FromPolar(car_new.rotation_deg, wheelbase / 2));
 
         float radius           = wheelbase / tan(steering_angle_rad);
-        float angular_velocity = car->velocity / radius;
+        float angular_velocity = car_new.velocity / radius;
         float delta_theta = angular_velocity * delta_time;  // Change in angle
 
         Vector2 next_pos = {sin(delta_theta) * radius,
                             radius - cos(delta_theta) * radius};
 
-        next_pos = Vector2Rotate(next_pos, radian(car->rotation_deg));
+        next_pos = Vector2Rotate(next_pos, radian(car_new.rotation_deg));
         bm       = Vector2Add(bm, next_pos);
 
-        car->rotation_deg += degree(delta_theta);
-        car->position =
-            Vector2Add(bm, Vector2FromPolar(car->rotation_deg, wheelbase / 2));
+        car_new.rotation_deg += degree(delta_theta);
+        car_new.position = Vector2Add(
+            bm, Vector2FromPolar(car_new.rotation_deg, wheelbase / 2));
     }
+    return car_new;
 }
 
 void DrawSpeedometer(Rectangle pos, float speed_kmh, float max_speed_kmh)
@@ -330,12 +342,13 @@ void draw_car(const struct car car, const Vector2 origin)
     }
 }
 
-enum type {
+enum TYPE {
     GRASS = 0,
     ROAD,
     PARKING,
     BUILDING,
     PAVEMENT,
+    OUTSIDE_MAP,
     ROAD_TYPE_COUNT,
 };
 
@@ -383,30 +396,69 @@ uint32_t compact_color(Color color)
     return color.r << 24 | color.g << 16 | color.b << 8 | color.a;
 }
 
-float count_points(struct stage stage, float x, float y)
+bool check_in_image(float x, float y, Image image, float scale)
 {
+    return x > 0 && y > 0 && x / scale < image.width &&
+           y / scale < image.height;
+}
+
+enum TYPE position_to_type(const struct stage stage, float x, float y)
+{
+    if (!check_in_image(x, y, stage.map_seg, stage.scale)) {
+        return OUTSIDE_MAP;
+    }
+
     const uint32_t grass    = compact_color((Color){0x00, 0xff, 0x00, 0xff});
     const uint32_t pavement = compact_color((Color){0x5b, 0x5b, 0x5b, 0xff});
     const uint32_t road     = compact_color((Color){0x00, 0x00, 0x00, 0xff});
     const uint32_t parking  = compact_color((Color){0x00, 0x00, 0xff, 0xff});
-    const uint32_t solid    = compact_color((Color){0xfc, 0xff, 0x00, 0xff});
+    const uint32_t building = compact_color((Color){0xfc, 0xff, 0x00, 0xff});
 
-    float sum = 0;
-    if (x < 0 || y < 0) {
-        return 0;
+    Color color = get_color(stage.map_seg, x / stage.scale, y / stage.scale);
+    uint32_t color_simple = compact_color(color);
+    if (color_simple == grass) {
+        return GRASS;
     }
+    else if (color_simple == pavement) {
+        return PAVEMENT;
+    }
+    else if (color_simple == road) {
+        return ROAD;
+    }
+    else if (color_simple == parking) {
+        return PARKING;
+    }
+    else if (color_simple == building) {
+        return BUILDING;
+    }
+    return ROAD_TYPE_COUNT;
+}
+
+float count_points(struct stage stage, float x, float y)
+{
+    float sum = 0;
 
     Color color = get_color(stage.map_seg, x / stage.scale, y / stage.scale);
     uint32_t color_simple = compact_color(color);
 
-    if (color_simple == grass) {
-        sum -= 1;
-    }
-    else if (color_simple == pavement) {
-        sum -= 1;
-    }
-    else if (color_simple == solid) {
-        sum -= 10;
+    enum TYPE type = position_to_type(stage, x, y);
+    switch (type) {
+        case GRASS:
+            sum -= 1;
+            break;
+        case PAVEMENT:
+            sum -= 1;
+            break;
+        case BUILDING:
+            sum -= 10;
+            break;
+        case OUTSIDE_MAP:
+            sum -= 10;
+            break;
+        case ROAD:
+        case PARKING:
+        case ROAD_TYPE_COUNT:
+            break;
     }
 
     return sum;
@@ -614,7 +666,26 @@ int main(int argc, char const** argv)
         camera.target.x -= target_diff.x * delta_time * 3;
         camera.target.y -= target_diff.y * delta_time * 3;
 
-        calculate_forces(&car, delta_time);
+        struct car car_new       = calculate_forces(&car, delta_time);
+        struct wheels wheels_new = get_wheels(car_new);
+        bool touch_solid         = false;
+
+        touch_solid |= position_to_type(stage, wheels_new.bl.x,
+                                        wheels_new.bl.y) == BUILDING;
+        touch_solid |= position_to_type(stage, wheels_new.fr.x,
+                                        wheels_new.fr.y) == BUILDING;
+        touch_solid |= position_to_type(stage, wheels_new.fl.x,
+                                        wheels_new.fl.y) == BUILDING;
+        touch_solid |= position_to_type(stage, wheels_new.br.x,
+                                        wheels_new.br.y) == BUILDING;
+
+        if (touch_solid) {
+            car.current_force = 0;
+            car.velocity      = 0;
+        }
+        else {
+            car = car_new;
+        }
 
         // points calculations
         struct wheels wheels = get_wheels(car);
