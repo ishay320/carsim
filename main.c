@@ -10,6 +10,9 @@
 #include <sys/types.h>
 
 #include "config.h"
+#ifdef GRAPH
+#include "graph.h"
+#endif
 #include "physics.h"
 #include "raylib.h"
 #include "raymath.h"
@@ -438,9 +441,6 @@ float count_points(struct stage stage, float x, float y)
 {
     float sum = 0;
 
-    Color color = get_color(stage.map_seg, x / stage.scale, y / stage.scale);
-    uint32_t color_simple = compact_color(color);
-
     enum TYPE type = position_to_type(stage, x, y);
     switch (type) {
         case GRASS:
@@ -571,11 +571,22 @@ int main(int argc, char const** argv)
     Camera2D camera = {0};
     camera.zoom     = 10.0f;
 
+#ifdef GRAPH
+    struct graph graph;
+    if (!graph_create(&graph, 1000, RED, BLANK)) {
+        printf("could not create graph\n");
+        return 1;
+    }
+#endif
+
     while (!WindowShouldClose()) {
         double now        = GetTime();
         double delta_time = now - time;
         time              = now;
 
+#ifdef GRAPH
+        graph_push(&graph, car.velocity);
+#endif
         // draw
         BeginMode2D(camera);
         {
@@ -593,6 +604,9 @@ int main(int argc, char const** argv)
                     car.velocity);
             DrawText(text, 100, 10, 25, WHITE);
 #endif  // DEBUG
+#ifdef GRAPH
+            graph_draw(graph, (Rectangle){10, 70, 200, 100});
+#endif
 
             // speedometer
             Rectangle speedometer_pos = {.x      = 0,
