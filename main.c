@@ -509,6 +509,65 @@ error:
     return false;
 }
 
+struct wheel_line {
+    struct wheels* items;
+    size_t length;
+    size_t curser;
+    float history_sec;
+    float time_pass;
+    // TODO:
+    // - add color to each history
+};
+
+bool wheel_line_create(struct wheel_line* wheel_line, float history_sec,
+                       size_t resolution, const struct car car)
+{
+    wheel_line->items = calloc(resolution, sizeof(*wheel_line->items));
+    if (!wheel_line->items) {
+        return false;
+    }
+    struct wheels wheels = get_wheels(car);
+    for (size_t i = 0; i < resolution; i++) {
+        wheel_line->items[i] = wheels;
+    }
+    wheel_line->length      = resolution;
+    wheel_line->history_sec = history_sec;
+    wheel_line->curser      = 0;
+    wheel_line->time_pass   = 0;
+    return true;
+}
+
+void wheel_line_push(struct wheel_line* wheel_line, const struct car car,
+                     float delta_time)
+{
+    wheel_line->time_pass += delta_time;
+    if (wheel_line->time_pass < wheel_line->history_sec) {
+        return;
+    }
+
+    struct wheels wheels                  = get_wheels(car);
+    wheel_line->items[wheel_line->curser] = wheels;
+    wheel_line->curser = (wheel_line->curser + 1) % wheel_line->length;
+}
+
+void wheel_line_draw(const struct wheel_line wheel_line, const struct car car)
+{
+    size_t power       = 0;
+    struct wheels last = wheel_line.items[wheel_line.curser];
+    for (size_t i = (wheel_line.curser + 1) % wheel_line.length;
+         i != ((int)wheel_line.curser) % wheel_line.length;
+         i = (i + 1) % wheel_line.length) {
+        struct wheels current = wheel_line.items[i];
+        Color color = {0, 0, 0, ((float)power / wheel_line.length) * 255};
+        DrawLineEx(last.bl, current.bl, car.wheels.width_m, color);
+        DrawLineEx(last.br, current.br, car.wheels.width_m, color);
+        DrawLineEx(last.fl, current.fl, car.wheels.width_m, color);
+        DrawLineEx(last.fr, current.fr, car.wheels.width_m, color);
+        last = current;
+        power++;
+    }
+}
+
 int main(int argc, char const** argv)
 {
     if (argc < 2) {
@@ -579,6 +638,12 @@ int main(int argc, char const** argv)
     }
 #endif
 
+    struct wheel_line wheel_line;
+    if (!wheel_line_create(&wheel_line, 0.5, 1000, car)) {
+        printf("could not create wheel line\n");
+        return 1;
+    }
+
     while (!WindowShouldClose()) {
         double now        = GetTime();
         double delta_time = now - time;
@@ -587,10 +652,12 @@ int main(int argc, char const** argv)
 #ifdef GRAPH
         graph_push(&graph, car.velocity);
 #endif
+        wheel_line_push(&wheel_line, car, delta_time);
         // draw
         BeginMode2D(camera);
         {
             draw_background(stage);
+            wheel_line_draw(wheel_line, car);
             draw_car(car, origin);
         }
         EndMode2D();
