@@ -644,6 +644,9 @@ int main(int argc, char const** argv)
         return 1;
     }
 
+    Rectangle speedometer_pos = {
+        .x = 0, .y = GetRenderHeight() - 125, .width = 125, .height = 125};
+
     while (!WindowShouldClose()) {
         double now        = GetTime();
         double delta_time = now - time;
@@ -676,10 +679,6 @@ int main(int argc, char const** argv)
 #endif
 
             // speedometer
-            Rectangle speedometer_pos = {.x      = 0,
-                                         .y      = GetRenderHeight() - 125,
-                                         .width  = 125,
-                                         .height = 125};
             DrawSpeedometer(speedometer_pos, ms_to_kmh(car.velocity), 100);
         }
         EndDrawing();
