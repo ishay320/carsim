@@ -34,6 +34,12 @@ const Color COLORS[COLOR_COUNT] = {
     [COLOR_YELOW_LINE] = YELLOW,
 };
 
+enum signal {
+    SIG_NONE,
+    SIG_RIGHT,
+    SIG_LEFT,
+};
+
 struct car {
     Color color;
     float width_m;
@@ -55,6 +61,8 @@ struct car {
     bool breaks;
     float motor_force;
     float points;
+    enum signal signal;
+    double signal_update;
 
     // forces
     float c_mass;
@@ -297,52 +305,98 @@ void draw_wheels(const struct car car, const Vector2 origin)
 #endif
 }
 
-void draw_car(const struct car car, const Vector2 origin)
+void draw_signals(struct car* car, const Vector2 origin, double delta_time)
 {
-    draw_wheels(car, origin);
-
-    DrawRectangleProMiddle(
-        (Rectangle){car.position.x, car.position.y, car.width_m, car.length_m},
-        origin, car.rotation_deg, car.color);
-
-    if (car.breaks) {
-        float length = sqrtf(powf(car.length_m, 2) + powf(car.width_m, 2)) / 2;
-        float angle  = degree(tanhf(car.width_m / car.length_m));
-        Vector2 back_left =
-            Vector2Subtract((Vector2){car.position.x, car.position.y},
-                            Vector2FromPolar(car.rotation_deg + angle, length));
-        DrawRectanglePro((Rectangle){back_left.x, back_left.y,
-                                     car.length_m / 15, car.width_m / 3},
-                         origin, car.rotation_deg, RED);
-
-        Vector2 back_right_light = Vector2Add(
-            Vector2FromPolar(car.rotation_deg + 90, car.width_m / 3 * 2),
-            back_left);
-        DrawRectanglePro((Rectangle){back_right_light.x, back_right_light.y,
-                                     car.length_m / 15, car.width_m / 3},
-                         origin, car.rotation_deg, RED);
+    if (car->signal == SIG_NONE) {
+        car->signal_update = 0;
+        return;
     }
 
-    if (car.velocity < -0.001) {
-        float length = sqrtf(powf(car.length_m, 2) + powf(car.width_m, 2)) / 2;
-        float angle  = degree(tanhf(car.width_m / car.length_m));
-        Vector2 back_left =
-            Vector2Subtract((Vector2){car.position.x, car.position.y},
-                            Vector2FromPolar(car.rotation_deg + angle, length));
+    float length = sqrtf(powf(car->length_m, 2) + powf(car->width_m, 2)) / 2;
+    float angle  = degree(tanhf(car->width_m / car->length_m));
+
+    Vector2 back_left =
+        Vector2Subtract((Vector2){car->position.x, car->position.y},
+                        Vector2FromPolar(car->rotation_deg + angle, length));
+
+    car->signal_update += delta_time;
+    float update_speed = 0.5;
+    if (car->signal_update < update_speed) {
+        return;
+    }
+    else if (car->signal_update > update_speed * 2) {
+        car->signal_update = 0;
+    }
+
+    if (car->signal == SIG_LEFT) {
+        DrawRectanglePro((Rectangle){back_left.x, back_left.y,
+                                     car->length_m / 15, car->width_m / 6},
+                         origin, car->rotation_deg, ORANGE);
+        return;
+    }
+    else if (car->signal == SIG_RIGHT) {
+        Vector2 back_right_light =
+            Vector2Add(Vector2FromPolar(car->rotation_deg + 90,
+                                        car->width_m - (car->width_m / 6)),
+                       back_left);
+        DrawRectanglePro((Rectangle){back_right_light.x, back_right_light.y,
+                                     car->length_m / 15, car->width_m / 6},
+                         origin, car->rotation_deg, ORANGE);
+        return;
+    }
+    printf("unreachable code reached\n");
+}
+
+void draw_car(struct car* car, const Vector2 origin, double delta_time)
+{
+    draw_wheels(*car, origin);
+
+    DrawRectangleProMiddle((Rectangle){car->position.x, car->position.y,
+                                       car->width_m, car->length_m},
+                           origin, car->rotation_deg, car->color);
+
+    if (car->breaks) {
+        float length =
+            sqrtf(powf(car->length_m, 2) + powf(car->width_m, 2)) / 2;
+        float angle       = degree(tanhf(car->width_m / car->length_m));
+        Vector2 back_left = Vector2Subtract(
+            (Vector2){car->position.x, car->position.y},
+            Vector2FromPolar(car->rotation_deg + angle, length));
+        DrawRectanglePro((Rectangle){back_left.x, back_left.y,
+                                     car->length_m / 15, car->width_m / 3},
+                         origin, car->rotation_deg, RED);
+
+        Vector2 back_right_light = Vector2Add(
+            Vector2FromPolar(car->rotation_deg + 90, car->width_m / 3 * 2),
+            back_left);
+        DrawRectanglePro((Rectangle){back_right_light.x, back_right_light.y,
+                                     car->length_m / 15, car->width_m / 3},
+                         origin, car->rotation_deg, RED);
+    }
+
+    if (car->velocity < -0.001) {
+        float length =
+            sqrtf(powf(car->length_m, 2) + powf(car->width_m, 2)) / 2;
+        float angle       = degree(tanhf(car->width_m / car->length_m));
+        Vector2 back_left = Vector2Subtract(
+            (Vector2){car->position.x, car->position.y},
+            Vector2FromPolar(car->rotation_deg + angle, length));
         Vector2 back_left_light = Vector2Add(
-            Vector2FromPolar(car.rotation_deg + 90, car.width_m / 5 * 1),
+            Vector2FromPolar(car->rotation_deg + 90, car->width_m / 5 * 1),
             back_left);
         DrawRectanglePro((Rectangle){back_left_light.x, back_left_light.y,
-                                     car.length_m / 15, car.width_m / 5},
-                         origin, car.rotation_deg, WHITE);
+                                     car->length_m / 15, car->width_m / 5},
+                         origin, car->rotation_deg, WHITE);
 
         Vector2 back_right_light = Vector2Add(
-            Vector2FromPolar(car.rotation_deg + 90, car.width_m / 5 * 3),
+            Vector2FromPolar(car->rotation_deg + 90, car->width_m / 5 * 3),
             back_left);
         DrawRectanglePro((Rectangle){back_right_light.x, back_right_light.y,
-                                     car.length_m / 15, car.width_m / 5},
-                         origin, car.rotation_deg, WHITE);
+                                     car->length_m / 15, car->width_m / 5},
+                         origin, car->rotation_deg, WHITE);
     }
+
+    draw_signals(car, origin, delta_time);
 }
 
 enum TYPE {
@@ -616,6 +670,7 @@ int main(int argc, char const** argv)
                       .breaks       = false,
                       .motor_force  = 0,
                       .points       = 0,
+                      .signal       = SIG_NONE,
                       .c_mass       = 1457,
                       .c_drag       = 10,
                       .c_rolling    = 1000,
@@ -661,7 +716,7 @@ int main(int argc, char const** argv)
         {
             draw_background(stage);
             wheel_line_draw(wheel_line, car);
-            draw_car(car, origin);
+            draw_car(&car, origin, delta_time);
         }
         EndMode2D();
         {
@@ -723,6 +778,16 @@ int main(int argc, char const** argv)
         }
         else if (!IsKeyDown(KEY_RIGHT) && !IsKeyDown(KEY_LEFT)) {
             car.wheels.steering_angle_deg *= 0.99;
+        }
+
+        if (IsKeyDown(KEY_Q)) {
+            car.signal = SIG_LEFT;
+        }
+        else if (IsKeyDown(KEY_W)) {
+            car.signal = SIG_RIGHT;
+        }
+        else {
+            car.signal = SIG_NONE;
         }
 
         camera.zoom += ((float)GetMouseWheelMove() * 0.05f);
